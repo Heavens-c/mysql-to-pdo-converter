@@ -81,7 +81,6 @@ class MysqlToPdoConverter {
     private function convertFunctions($query) {
         $conversions = [
             // String functions
-            '/\bCONCAT_WS\s*\(/i' => 'CONCAT_WS(',  // PostgreSQL supports this
             '/\bGROUP_CONCAT\s*\(/i' => 'STRING_AGG(',
             '/\bIFNULL\s*\(/i' => 'COALESCE(',
             
@@ -181,7 +180,7 @@ class MysqlToPdoConverter {
             ]);
             return $pdo;
         } catch (PDOException $e) {
-            throw new Exception("Connection failed: " . $e->getMessage());
+            throw new PDOException("Connection failed: " . $e->getMessage(), (int)$e->getCode(), $e);
         }
     }
     
