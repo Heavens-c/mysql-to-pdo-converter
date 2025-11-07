@@ -56,7 +56,7 @@ class MysqlToPdoConverter {
             return $query;
         }
         
-        // Convert ? placeholders to :param1, :param2, etc.
+        // Convert ? placeholders to :param0, :param1, etc.
         $index = 0;
         $namedParams = [];
         $convertedQuery = preg_replace_callback('/\?/', function($matches) use (&$index, &$namedParams, &$params) {
@@ -128,10 +128,14 @@ class MysqlToPdoConverter {
      * Convert MySQL AUTO_INCREMENT to PostgreSQL SERIAL
      */
     private function convertAutoIncrement($query) {
-        // Convert AUTO_INCREMENT to SERIAL
+        // Convert INT/INTEGER AUTO_INCREMENT to SERIAL
+        // This handles the most common cases where AUTO_INCREMENT is used with INT types
         $query = preg_replace('/\bINTEGER\s+AUTO_INCREMENT/i', 'SERIAL', $query);
         $query = preg_replace('/\bINT\s+AUTO_INCREMENT/i', 'SERIAL', $query);
-        $query = preg_replace('/\bAUTO_INCREMENT/i', '', $query);
+        
+        // Remove any remaining standalone AUTO_INCREMENT keywords
+        // (in case it appears in other contexts, though this is rare)
+        $query = preg_replace('/\s+AUTO_INCREMENT\b/i', '', $query);
         
         return $query;
     }
