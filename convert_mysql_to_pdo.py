@@ -1,8 +1,7 @@
 import os
 import re
-
-# Folder containing your PHP files
-SOURCE_DIR = r"C:\xampp\htdocs\newpayroll"
+import argparse
+import sys
 
 # Regex patterns for old MySQL functions
 patterns = {
@@ -43,15 +42,31 @@ def convert_php_file(file_path):
     output_path = file_path.replace(".php", "_pdo.php")
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)
-    print(f"✅ Converted: {os.path.basename(file_path)} → {os.path.basename(output_path)}")
+    print(f"[SUCCESS] Converted: {os.path.basename(file_path)} -> {os.path.basename(output_path)}")
 
 def scan_directory(path):
+    if not os.path.exists(path):
+        print(f"[ERROR] Path '{path}' does not exist.")
+        sys.exit(1)
+    
+    count = 0
     for root, _, files in os.walk(path):
         for file in files:
-            if file.endswith(".php"):
+            if file.endswith(".php") and not file.endswith("_pdo.php"):
                 convert_php_file(os.path.join(root, file))
+                count += 1
+    
+    if count == 0:
+        print("[INFO] No unconverted .php files found in the directory.")
+    else:
+        print(f"[SUCCESS] Finished! Converted {count} file(s) with '_pdo.php' suffix.")
 
 if __name__ == "__main__":
-    print("🚀 Starting MySQL → PDO PostgreSQL migration...")
-    scan_directory(SOURCE_DIR)
-    print("✅ All done! Converted files saved with '_pdo.php' suffix.")
+    parser = argparse.ArgumentParser(description="Scan a directory and convert legacy MySQL functions to PDO (PostgreSQL compatible) in PHP files.")
+    parser.add_argument("directory", nargs="?", default=".", help="The directory containing PHP files to scan/convert (defaults to current directory)")
+    
+    args = parser.parse_args()
+    
+    print(f"Starting MySQL -> PDO PostgreSQL migration in: {os.path.abspath(args.directory)}")
+    scan_directory(args.directory)
+
