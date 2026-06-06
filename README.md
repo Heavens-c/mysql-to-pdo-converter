@@ -27,7 +27,7 @@ A lightweight PHP utility and Python CLI migration tool designed to facilitate s
 ├── examples.php                # Practical examples of conversions
 ├── migration-example.php       # Real-world user-migration scenarios
 ├── tests.php                   # Diagnostic unit test suite
-└── README.md                   # Project documentation
+└── README.md                   # Project documentation & student guide
 ```
 
 ---
@@ -127,11 +127,89 @@ python convert_mysql_to_pdo.py "C:\xampp\htdocs\my_project"
 
 ---
 
-## 📊 Conversion Rules Reference
+## 🎓 Student Education Guide
 
-### Identifiers
-*   MySQL Backticks (`` ` ``) $\rightarrow$ PostgreSQL Double Quotes (`"`)
-*   *Example*: `` `users` `` $\rightarrow$ `"users"`
+This section helps students understand the security, architectural, and syntax differences involved in migrating database drivers.
+
+### 1. Legacy `mysql_*` vs. Modern PDO
+Historically, PHP used procedural `mysql_*` functions. These are obsolete and were removed in PHP 7.0 due to structural flaws and security vulnerabilities. Today, we use **PHP Data Objects (PDO)**, which is object-oriented and supports multiple database backends.
+
+| Feature | Legacy `mysql_*` Extension | Modern PHP Data Objects (PDO) |
+|---|---|---|
+| **Programming Style** | Procedural (functions) | Object-Oriented (classes) |
+| **Driver Portability** | Only MySQL | 12+ database drivers (MySQL, PostgreSQL, etc.) |
+| **Security (SQLi)** | Manual string escaping (unreliable) | Native Prepared Statements (extremely secure) |
+| **Error Handling** | Return codes (manual check) | Exceptions (`PDOException`) |
+
+#### Code Comparison
+*   **Legacy MySQL:**
+    ```php
+    $conn = mysql_connect("localhost", "user", "password");
+    mysql_select_db("school", $conn);
+    $id = $_GET['id'];
+    $res = mysql_query("SELECT * FROM students WHERE id = " . $id);
+    $row = mysql_fetch_assoc($res);
+    ```
+*   **Modern PDO:**
+    ```php
+    $pdo = new PDO("pgsql:host=localhost;dbname=school", "postgres", "password");
+    $stmt = $pdo->prepare("SELECT * FROM students WHERE id = ?");
+    $stmt->execute([$_GET['id']]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    ```
+
+---
+
+### 2. SQL Injection (SQLi) Protection
+When inputs are concatenated directly into SQL queries, users can manipulate query logic:
+```php
+$user = $_POST['user']; // Enters: ' OR '1'='1
+$sql = "SELECT * FROM users WHERE username = '$user'";
+// Evaluates to: SELECT * FROM users WHERE username = '' OR '1'='1'
+```
+**Prepared Statements** resolve this by sending the SQL structure and parameter values separately. The database driver compiles the query layout first and binds inputs strictly as literal values, rendering SQL Injection payloads harmless.
+
+---
+
+### 3. MySQL vs. PostgreSQL Dialect Translations
+PostgreSQL follows the standard SQL specifications more strictly than MySQL:
+*   **Quotes**: MySQL uses backticks (`` ` ``) for identifiers, whereas PostgreSQL uses double quotes (`"`). Single quotes (`'`) are reserved strictly for strings in both dialects.
+*   **Auto-incrementing fields**: MySQL uses `AUTO_INCREMENT`, while PostgreSQL uses sequence-based `SERIAL` types.
+*   **Date/Time Functions**: MySQL `NOW()` and `CURDATE()` translate to standard PostgreSQL `CURRENT_TIMESTAMP` and `CURRENT_DATE`.
+*   **Offsets**: MySQL uses `LIMIT offset, count`, while PostgreSQL uses `LIMIT count OFFSET offset`.
+
+---
+
+### 4. Engine Conversion Mechanics
+The converter handles translations using regular expressions (`preg_replace` / `re.sub`):
+*   **Identifer mapping**: `str_replace('`', '"', $query)`
+*   **Data type conversions**: `DATETIME` $\rightarrow$ `TIMESTAMP`, `INT` $\rightarrow$ `INTEGER`.
+*   **Placeholder mapping**: Positional `?` symbols are matched dynamically and replaced with `:param0`, `:param1` to generate named parameter arrays for secure binding.
+
+---
+
+### 5. Hands-on Classroom Lab
+Students can practice migration using the following tasks:
+
+1.  **Write a Legacy File**: Save a file named `student_legacy.php` containing:
+    ```php
+    <?php
+    $db = mysql_connect("localhost", "admin", "password");
+    mysql_select_db("university", $db);
+    $search = $_GET['q'];
+    $query = mysql_query("SELECT `id`, IFNULL(`grade`, 'N/A') FROM `grades` WHERE `course` = '$search' LIMIT 0, 5");
+    while ($row = mysql_fetch_assoc($query)) {
+        echo "ID: " . $row['id'];
+    }
+    ?>
+    ```
+2.  **Refactor with Python**: Run `python convert_mysql_to_pdo.py`. Open the generated `student_legacy_pdo.php` to observe function translations and the injected PDO initialization header.
+3.  **Refactor SQL Statements**: Write a PHP test using `MysqlToPdoConverter::convert()` on the query from step 1 to output the PostgreSQL equivalent:
+    `SELECT "id", COALESCE("grade", 'N/A') FROM "grades" WHERE "course" = :param0 LIMIT 5 OFFSET 0`
+
+---
+
+## 📊 Conversion Rules Reference
 
 ### SQL Functions
 | MySQL Function | PostgreSQL Equivalent | Description |
@@ -154,10 +232,6 @@ python convert_mysql_to_pdo.py "C:\xampp\htdocs\my_project"
 | `MEDIUMTEXT` / `LONGTEXT` | `TEXT` |
 | `ENUM(...)` | `VARCHAR(255)` *(simplified replacement)* |
 | `AUTO_INCREMENT` | `SERIAL` *(when combined with integer key)* |
-
-### Limits
-*   MySQL Limit: `LIMIT offset, count` $\rightarrow$ PostgreSQL: `LIMIT count OFFSET offset`
-*   *Example*: `LIMIT 5, 10` $\rightarrow$ `LIMIT 10 OFFSET 5`
 
 ---
 
